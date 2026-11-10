@@ -90,6 +90,9 @@
       <label>Địa điểm<input id="editPlace" type="text" placeholder="Ví dụ: Trường ..."></label>
       <label>Chữ trên nút<input id="editButtonText" type="text"></label>
       <label>Email nhận xác nhận<input id="editRsvpEmail" type="email"></label>
+      <label>EmailJS Public Key<input id="editEmailjsPublicKey" type="text" placeholder="Public Key"></label>
+      <label>EmailJS Service ID<input id="editEmailjsServiceId" type="text" placeholder="Service ID"></label>
+      <label>EmailJS Template ID<input id="editEmailjsTemplateId" type="text" placeholder="Template ID"></label>
       <label class="wide">Lời nhắn cuối trang<input id="editFooterNote" type="text"></label>
       <label>Tiêu đề bảng xác nhận<input id="editConfirmTitle" type="text"></label>
       <label>Chữ nút đồng ý<input id="editConfirmYes" type="text"></label>
@@ -101,6 +104,12 @@
       <label>Chú thích ảnh 3<input id="editCaption3" type="text"></label>
       <label>Ảnh trên thiệp<input id="editCover" type="file" accept="image/*"></label>
       <label>Ảnh nền toàn trang<input id="editBackground" type="file" accept="image/*"></label>
+      <label class="wide">Ảnh nền sảnh chính<input id="editLobbyBackground" type="file" accept="image/*"></label>
+      <label class="wide opacity-control">Độ trong suốt ảnh nền sảnh chính <span class="opacity-value"><output id="lobbyOpacityValue">35%</output></span>
+        <input id="editLobbyOpacity" type="range" min="0" max="100" step="1" value="35">
+        <span class="range-hints"><span>Trong suốt</span><span>Rõ nét</span></span>
+      </label>
+      <label class="wide clear-background-option"><input id="clearLobbyBackground" type="checkbox"> Xóa ảnh nền sảnh chính</label>
       <label>Ảnh kỷ yếu 1<input id="editGallery1" type="file" accept="image/*"></label>
       <label>Ảnh kỷ yếu 2<input id="editGallery2" type="file" accept="image/*"></label>
       <label>Ảnh kỷ yếu 3<input id="editGallery3" type="file" accept="image/*"></label>
@@ -109,6 +118,7 @@
       <p class="admin-help wide">Bạn có thể chỉnh nội dung, email, chú thích và thay riêng từng ảnh. Tên đăng nhập được nhớ trên thiết bị nếu bật tùy chọn ở màn hình đầu. Lưu trên máy này chỉ hiển thị ở trình duyệt hiện tại. Muốn mọi người đều thấy, hãy tải config.js rồi thay file cũ trong GitHub. Ảnh sẽ tự động được thu nhỏ và nén (mục tiêu tối đa khoảng 450 KB/ảnh) trước khi lưu.</p>
     </form>
   </section>
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
   <script src="config.js"></script>
   <script src="script.js"></script>
 </body>

@@ -47,3 +47,37 @@ body.modal-open{overflow:hidden}
 .topbar-actions{display:flex;align-items:center;gap:22px}
 .logout-button{color:var(--rose)}
 @media(max-width:420px){.topbar-actions{gap:12px}.topbar-actions .text-button{font-size:11px}}
+
+/* Ảnh nền riêng cho sảnh chính; độ trong suốt được điều khiển từ bảng admin */
+.hero{position:relative;isolation:isolate}
+.hero::before{content:"";position:absolute;inset:0;z-index:-1;background-image:var(--lobby-bg-image,none);background-position:center;background-size:cover;background-repeat:no-repeat;opacity:var(--lobby-bg-opacity,.35);pointer-events:none}
+.opacity-control{gap:10px!important}
+.opacity-control>input[type="range"]{padding:0;accent-color:var(--rose);cursor:pointer}
+.opacity-value{display:inline-flex;align-items:center;justify-content:center;min-width:54px;padding:4px 9px;border-radius:20px;background:#f3e9e2;color:var(--rose);font-size:12px;font-weight:700}
+.range-hints{display:flex;justify-content:space-between;color:#9b8b81;font-size:10px;font-weight:500;letter-spacing:0}
+.clear-background-option{display:flex!important;align-items:center;gap:9px!important;font-weight:600!important}
+.clear-background-option input{width:16px;height:16px;accent-color:var(--rose)}
+
+/* Ảnh nền sảnh chính phủ kín toàn bộ trang thiệp, không chỉ riêng phần hero */
+.invitation{position:relative;isolation:isolate;background:transparent;}
+.invitation::before{content:"";position:fixed;inset:0;z-index:-1;background-image:var(--lobby-bg-image,none);background-position:center center;background-size:cover;background-repeat:no-repeat;opacity:var(--lobby-bg-opacity,.35);pointer-events:none;}
+.invitation .topbar,
+.invitation .hero,
+.invitation .gallery-section,
+.invitation footer{background-color:transparent;}
+.invitation .hero::before{content:none;}
+
+
+/* Hiệu ứng sao rực rỡ, dấu sáng theo con trỏ và ảnh tương tác */
+.sparkle-burst{position:fixed;z-index:3000;pointer-events:none;width:1px;height:1px}
+.sparkle-burst i{position:absolute;left:0;top:0;color:var(--star-color);font-style:normal;font-size:var(--star-size);line-height:1;text-shadow:0 0 10px currentColor;animation:starExplode .72s cubic-bezier(.16,.7,.25,1) forwards}
+@keyframes starExplode{0%{opacity:0;transform:translate(-50%,-50%) scale(.15) rotate(0)}18%{opacity:1}100%{opacity:0;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(.15) rotate(130deg)}}
+.pointer-twinkle{position:fixed;z-index:2500;pointer-events:none;font-size:17px;font-weight:700;line-height:1;transform:translate(-50%,-50%);text-shadow:0 0 9px currentColor;animation:pointerFade .62s ease-out forwards}
+@keyframes pointerFade{0%{opacity:0;transform:translate(-50%,-30%) scale(.4) rotate(-20deg)}30%{opacity:1}100%{opacity:0;transform:translate(-50%,-150%) scale(1.2) rotate(35deg)}}
+.photo-frame,.gallery-item{transform:translateY(var(--lift,0px)) rotateX(var(--tilt-x,0deg)) rotateY(var(--tilt-y,0deg));transform-style:preserve-3d;transition:transform .22s ease,box-shadow .25s ease;will-change:transform}
+.photo-frame:hover,.gallery-item:hover{box-shadow:0 28px 65px #5d40352b}
+.gallery-item{cursor:pointer}
+.gallery-item img,.photo-frame img{transition:filter .3s ease,transform .45s cubic-bezier(.2,.7,.2,1)}
+.gallery-item:hover img,.photo-frame:hover img{filter:saturate(1.08) brightness(1.035);transform:scale(1.018)}
+@media(hover:none){.gallery-item:active,.photo-frame:active{filter:saturate(1.1);transform:scale(.985)}}
+@media(prefers-reduced-motion:reduce){.sparkle-burst,.pointer-twinkle{display:none!important}.photo-frame,.gallery-item,.photo-frame img,.gallery-item img{transition:none!important;transform:none!important}}

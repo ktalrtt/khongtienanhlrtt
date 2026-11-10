@@ -44,3 +44,23 @@ Bản này dùng IndexedDB thay cho localStorage để lưu ảnh và cấu hìn
 
 ## Nội dung có thể chỉnh sửa
 Trong bảng PRIVATE EDITOR có thể chỉnh tiêu đề trang, nội dung màn hình đăng nhập, lời chào, tiêu đề và nội dung thiệp, ngày giờ, địa điểm, chữ nút, email nhận RSVP, lời nhắn cuối trang, chú thích ảnh, font và các ảnh. Sau khi lưu trên máy, bấm **Tải config.js để cập nhật GitHub** rồi thay file config.js trong repository để công khai thay đổi cho tất cả khách.
+
+
+## Tự động gửi thông báo khi khách xác nhận (EmailJS)
+1. Tạo tài khoản tại https://www.emailjs.com/ và kết nối dịch vụ email của bạn.
+2. Tạo một Email Template. Đặt người nhận (To Email) cố định là `khongtienanhlrtt@gmail.com` (hoặc email bạn muốn nhận).
+3. Trong nội dung mẫu, dùng các biến: `{{guest_name}}`, `{{event_date}}`, `{{event_place}}`, `{{message}}`. Ví dụ tiêu đề: `Xác nhận tham gia kỷ yếu - {{guest_name}}`.
+4. Lấy Public Key, Service ID và Template ID trong trang quản lý EmailJS.
+5. Điền ba giá trị này vào `config.js` tại các trường `emailjsPublicKey`, `emailjsServiceId`, `emailjsTemplateId`, rồi cập nhật repository GitHub. Có thể điền trong bảng quản trị website rồi xuất `config.js` như các thiết lập khác.
+6. Khi khách bấm Đồng ý, website sẽ gửi email thông báo tự động đến địa chỉ người nhận đã cấu hình trong EmailJS template. Khách không cần mở ứng dụng email hoặc tự bấm Gửi.
+
+**Lưu ý:** EmailJS cần được thiết lập và xác minh trước. Không đưa Private Key/secret key vào website; chỉ dùng Public Key ở trình duyệt. Hãy giới hạn domain được phép gửi trong EmailJS và đặt giới hạn gửi để tránh bị lạm dụng.
+
+
+## Ảnh nền sảnh chính và độ trong suốt
+- Đăng nhập bằng tên quản trị `Khổng Tiến Anh đẹp trai` để mở bảng chỉnh sửa.
+- Chọn mục **Ảnh nền sảnh chính** để tải ảnh riêng cho khu vực lời mời chính (không thay ảnh nền toàn trang hoặc ảnh bìa).
+- Kéo thanh **Độ trong suốt ảnh nền sảnh chính** từ 0% đến 100%; ảnh xem trước và phần trăm thay đổi ngay khi kéo.
+- Chọn **Xóa ảnh nền sảnh chính** nếu muốn bỏ ảnh đang dùng.
+- Bấm **Lưu thay đổi trên máy này** để lưu trong trình duyệt hiện tại. Để cập nhật cho khách khác, bấm **Tải config.js để cập nhật GitHub** rồi thay file `config.js` trên GitHub như hướng dẫn phía trên.
+- Cấu hình mới dùng hai trường `lobbyBackgroundImage` và `lobbyBackgroundOpacity`; các thiết lập ảnh nền toàn trang cũ vẫn được giữ riêng.

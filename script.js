@@ -6,6 +6,7 @@ const DB_KEY = "site-config";
 const ACCOUNT_KEY = "remembered-guest-name";
 let currentConfig = { ...CONFIG };
 let currentGuestName = "";
+let lobbyPreviewObjectUrl = "";
 function openConfigDB() {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, 1);
@@ -95,7 +96,12 @@ function applyConfig() {
   $("rsvpLink").innerHTML = `${escapeHtml(currentConfig.buttonText || "Chấp nhận lời mời")} <span>↗</span>`;
   document.documentElement.style.setProperty("--site-font", `"${currentConfig.fontFamily || "DM Sans"}", sans-serif`);
   document.body.style.backgroundImage = currentConfig.backgroundImage ? `linear-gradient(rgba(251,247,243,.78),rgba(251,247,243,.78)),url("${currentConfig.backgroundImage}")` : "";
+  const lobbyImage = currentConfig.lobbyBackgroundImage || "";
+  const lobbyOpacity = Math.max(0, Math.min(100, Number(currentConfig.lobbyBackgroundOpacity ?? 35))) / 100;
+  document.documentElement.style.setProperty("--lobby-bg-image", lobbyImage ? `url("${lobbyImage}")` : "none");
+  document.documentElement.style.setProperty("--lobby-bg-opacity", String(lobbyOpacity));
   $("gallery").innerHTML = (currentConfig.gallery || []).map((item, i) => `<figure class="gallery-item"><img src="${item.image}" alt="Khoảnh khắc kỷ yếu ${i + 1}"><figcaption><span>0${i + 1}</span>${escapeHtml(item.caption)}</figcaption></figure>`).join("");
+  if (typeof attachPhotoInteractions === "function") attachPhotoInteractions();
 }
 function escapeHtml(value) { return String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 function fillEditor() {
@@ -118,6 +124,9 @@ function fillEditor() {
   $("editGreetingPrefix").value = currentConfig.greetingPrefix || "Kính chào:";
   $("editFooterNote").value = currentConfig.footerNote || "";
   $("editRsvpEmail").value = currentConfig.rsvpEmail || "";
+  $("editEmailjsPublicKey").value = currentConfig.emailjsPublicKey || "";
+  $("editEmailjsServiceId").value = currentConfig.emailjsServiceId || "";
+  $("editEmailjsTemplateId").value = currentConfig.emailjsTemplateId || "";
   [1,2,3].forEach(i => { $( `editCaption${i}` ).value = currentConfig.gallery?.[i-1]?.caption || ""; });
   $("editInvitationLine").value = currentConfig.invitationLine || "";
   $("editMainTitle").value = currentConfig.mainTitle || "";
@@ -126,6 +135,9 @@ function fillEditor() {
   $("editPlace").value = currentConfig.eventPlace || "";
   $("editButtonText").value = currentConfig.buttonText || "Chấp nhận lời mời";
   $("editFont").value = currentConfig.fontFamily || "DM Sans";
+  $("editLobbyOpacity").value = Math.max(0, Math.min(100, Number(currentConfig.lobbyBackgroundOpacity ?? 35)));
+  $("lobbyOpacityValue").value = `${$("editLobbyOpacity").value}%`;
+  $("clearLobbyBackground").checked = false;
 }
 async function readImage(file) {
   if (!file) return null;
@@ -210,6 +222,7 @@ $("adminForm").addEventListener("submit", async (event) => {
   try {
     const cover = await readImage($("editCover").files[0]);
     const background = await readImage($("editBackground").files[0]);
+    const lobbyBackground = await readImage($("editLobbyBackground").files[0]);
     const galleryUploads = await Promise.all([1, 2, 3].map(i => readImage($(`editGallery${i}`).files[0])));
     currentConfig = { ...currentConfig,
       siteTitle: $("editSiteTitle").value.trim(), gateButtonText: $("editGateButton").value.trim(),
@@ -221,11 +234,17 @@ $("adminForm").addEventListener("submit", async (event) => {
       gateTitle: $("editGateTitle").value.trim(), gateCopy: $("editGateCopy").value.trim(),
       mainEyebrow: $("editMainEyebrow").value.trim(), greetingPrefix: $("editGreetingPrefix").value.trim(),
       footerNote: $("editFooterNote").value.trim(), rsvpEmail: $("editRsvpEmail").value.trim(),
+      emailjsPublicKey: $("editEmailjsPublicKey").value.trim(),
+      emailjsServiceId: $("editEmailjsServiceId").value.trim(),
+      emailjsTemplateId: $("editEmailjsTemplateId").value.trim(),
       invitationLine: $("editInvitationLine").value.trim(), mainTitle: $("editMainTitle").value.trim(),
       mainMessage: $("editMessage").value.trim(), eventDate: $("editDate").value.trim(),
       eventPlace: $("editPlace").value.trim(), buttonText: $("editButtonText").value.trim(),
       fontFamily: $("editFont").value,
       ...(cover ? { coverImage: cover } : {}), ...(background ? { backgroundImage: background } : {}),
+      ...(lobbyBackground ? { lobbyBackgroundImage: lobbyBackground } : {}),
+      ...( $("clearLobbyBackground").checked ? { lobbyBackgroundImage: "" } : {}),
+      lobbyBackgroundOpacity: Number($("editLobbyOpacity").value),
       gallery: (currentConfig.gallery || []).map((item, index) => ({
         ...item, caption: $(`editCaption${index + 1}`).value.trim(),
         ...(galleryUploads[index] ? { image: galleryUploads[index] } : {})
@@ -233,7 +252,8 @@ $("adminForm").addEventListener("submit", async (event) => {
     };
     await saveConfigToDB(currentConfig);
     applyConfig();
-    ["editCover", "editBackground", "editGallery1", "editGallery2", "editGallery3"].forEach(id => { $(id).value = ""; });
+    ["editCover", "editBackground", "editLobbyBackground", "editGallery1", "editGallery2", "editGallery3"].forEach(id => { $(id).value = ""; });
+    if (lobbyPreviewObjectUrl) { URL.revokeObjectURL(lobbyPreviewObjectUrl); lobbyPreviewObjectUrl = ""; }
     alert("Đã lưu thay đổi trên trình duyệt này!");
   } catch (error) {
     console.error(error);
@@ -244,29 +264,142 @@ $("adminForm").addEventListener("submit", async (event) => {
 });
 $("exportConfig").addEventListener("click", downloadConfig);
 
+// Cập nhật con số và xem trước độ trong suốt ngay khi admin kéo thanh trượt.
+function updateLobbyBackgroundPreview() {
+  const value = Math.max(0, Math.min(100, Number($("editLobbyOpacity").value)));
+  $("lobbyOpacityValue").value = `${value}%`;
+  document.documentElement.style.setProperty("--lobby-bg-opacity", String(value / 100));
+  if ($("clearLobbyBackground").checked) {
+    document.documentElement.style.setProperty("--lobby-bg-image", "none");
+  } else if (lobbyPreviewObjectUrl) {
+    document.documentElement.style.setProperty("--lobby-bg-image", `url("${lobbyPreviewObjectUrl}")`);
+  } else {
+    document.documentElement.style.setProperty("--lobby-bg-image", currentConfig.lobbyBackgroundImage ? `url("${currentConfig.lobbyBackgroundImage}")` : "none");
+  }
+}
+$("editLobbyOpacity").addEventListener("input", updateLobbyBackgroundPreview);
+$("editLobbyBackground").addEventListener("change", event => {
+  if (lobbyPreviewObjectUrl) URL.revokeObjectURL(lobbyPreviewObjectUrl);
+  lobbyPreviewObjectUrl = event.target.files[0] ? URL.createObjectURL(event.target.files[0]) : "";
+  $("clearLobbyBackground").checked = false;
+  updateLobbyBackgroundPreview();
+});
+$("clearLobbyBackground").addEventListener("change", updateLobbyBackgroundPreview);
 
-// Hộp xác nhận tham gia và hiệu ứng âm thanh được tạo trực tiếp bằng Web Audio.
-function playClickSound() {
+
+// Âm thanh tương tác nhiều lớp, tạo bằng Web Audio (không cần tải file âm thanh ngoài).
+let interactionAudio = null;
+function getInteractionAudio() {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) return null;
+  if (!interactionAudio) interactionAudio = new AudioContextClass();
+  if (interactionAudio.state === "suspended") interactionAudio.resume().catch(() => {});
+  return interactionAudio;
+}
+function playClickSound(kind = "button") {
   try {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextClass) return;
-    const audio = new AudioContextClass();
-    const oscillator = audio.createOscillator();
-    const gain = audio.createGain();
-    oscillator.type = "sine";
-    oscillator.frequency.setValueAtTime(620, audio.currentTime);
-    oscillator.frequency.exponentialRampToValueAtTime(880, audio.currentTime + 0.055);
-    gain.gain.setValueAtTime(0.0001, audio.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.10, audio.currentTime + 0.012);
-    gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 0.11);
-    oscillator.connect(gain); gain.connect(audio.destination);
-    oscillator.start(); oscillator.stop(audio.currentTime + 0.12);
-    oscillator.onended = () => audio.close();
+    const audio = getInteractionAudio();
+    if (!audio) return;
+    const now = audio.currentTime;
+    const notes = kind === "photo" ? [740, 988, 1318] : [587, 784, 1175];
+    notes.forEach((frequency, index) => {
+      const oscillator = audio.createOscillator();
+      const gain = audio.createGain();
+      const start = now + index * 0.035;
+      oscillator.type = index === 1 ? "triangle" : "sine";
+      oscillator.frequency.setValueAtTime(frequency, start);
+      oscillator.frequency.exponentialRampToValueAtTime(frequency * 1.025, start + 0.12);
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(index === 0 ? 0.075 : 0.042, start + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.24);
+      oscillator.connect(gain); gain.connect(audio.destination);
+      oscillator.start(start); oscillator.stop(start + 0.25);
+    });
   } catch (_) { /* Âm thanh có thể bị chặn tùy trình duyệt. */ }
 }
+
+// Tạo các ngôi sao nhiều màu bung ra tại vị trí bấm/chạm.
+const sparkleColors = ["#ff78a8", "#ffc857", "#8ed8ff", "#b99aff", "#8ce6c0", "#ff9b75"];
+function burstStars(x, y, amount = 13) {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const layer = document.createElement("div");
+  layer.className = "sparkle-burst";
+  layer.setAttribute("aria-hidden", "true");
+  layer.style.left = `${x}px`; layer.style.top = `${y}px`;
+  for (let i = 0; i < amount; i++) {
+    const star = document.createElement("i");
+    const angle = (Math.PI * 2 * i / amount) + (Math.random() * 0.22);
+    const distance = 30 + Math.random() * 58;
+    star.textContent = Math.random() > 0.35 ? "✦" : "✧";
+    star.style.setProperty("--dx", `${Math.cos(angle) * distance}px`);
+    star.style.setProperty("--dy", `${Math.sin(angle) * distance}px`);
+    star.style.setProperty("--star-color", sparkleColors[Math.floor(Math.random() * sparkleColors.length)]);
+    star.style.setProperty("--star-size", `${10 + Math.random() * 13}px`);
+    layer.append(star);
+  }
+  document.body.append(layer);
+  window.setTimeout(() => layer.remove(), 850);
+}
+
+// Theo dấu con trỏ bằng những tia sáng nhỏ trên máy tính; trên điện thoại dùng chạm.
+let lastTrailAt = 0;
+document.addEventListener("pointermove", event => {
+  if (event.pointerType !== "mouse" || event.buttons) return;
+  const now = performance.now();
+  if (now - lastTrailAt < 85) return;
+  lastTrailAt = now;
+  const dot = document.createElement("span");
+  dot.className = "pointer-twinkle";
+  dot.textContent = Math.random() > 0.5 ? "✧" : "·";
+  dot.style.left = `${event.clientX}px`; dot.style.top = `${event.clientY}px`;
+  dot.style.color = sparkleColors[Math.floor(Math.random() * sparkleColors.length)];
+  document.body.append(dot);
+  window.setTimeout(() => dot.remove(), 650);
+}, { passive: true });
+
+// Ảnh có hiệu ứng nghiêng theo chuột, nổi nhẹ khi rê và bung sao khi chạm/bấm.
+let lastPhotoTouchAt = 0;
+function attachPhotoInteractions() {
+  document.querySelectorAll(".photo-frame, .gallery-item").forEach(card => {
+    if (card.dataset.magicReady) return;
+    card.dataset.magicReady = "1";
+    card.addEventListener("pointermove", event => {
+      if (event.pointerType === "touch") return;
+      const rect = card.getBoundingClientRect();
+      const x = (event.clientX - rect.left) / rect.width - 0.5;
+      const y = (event.clientY - rect.top) / rect.height - 0.5;
+      const tilt = card.classList.contains("photo-frame") ? 2 : 0;
+      card.style.setProperty("--tilt-x", `${(-y * 5).toFixed(2)}deg`);
+      card.style.setProperty("--tilt-y", `${(x * 6 + tilt).toFixed(2)}deg`);
+      card.style.setProperty("--lift", "-5px");
+    });
+    card.addEventListener("pointerleave", () => {
+      card.style.setProperty("--tilt-x", "0deg");
+      card.style.setProperty("--tilt-y", card.classList.contains("photo-frame") ? "2deg" : "0deg");
+      card.style.setProperty("--lift", "0px");
+    });
+    card.addEventListener("pointerdown", event => {
+      if (event.pointerType === "touch") {
+        lastPhotoTouchAt = Date.now();
+        const rect = card.getBoundingClientRect();
+        burstStars(event.clientX || rect.left + rect.width / 2, event.clientY || rect.top + rect.height / 2, 17);
+        playClickSound("photo");
+      }
+    }, { passive: true });
+    card.addEventListener("click", event => {
+      if (event.detail === 0 || Date.now() - lastPhotoTouchAt < 550) return;
+      burstStars(event.clientX, event.clientY, 17);
+      playClickSound("photo");
+    });
+  });
+}
+attachPhotoInteractions();
 document.addEventListener("click", event => {
   const button = event.target.closest("button, .rsvp");
-  if (button && !button.disabled) playClickSound();
+  if (button && !button.disabled) {
+    burstStars(event.clientX || window.innerWidth / 2, event.clientY || window.innerHeight / 2, 11);
+    playClickSound("button");
+  }
 });
 
 $("rsvpLink").addEventListener("click", () => {
@@ -282,11 +415,38 @@ $("confirmNo").addEventListener("click", closeConfirmModal);
 $("confirmModal").addEventListener("click", event => {
   if (event.target === $("confirmModal")) closeConfirmModal();
 });
-$("confirmYes").addEventListener("click", () => {
+$("confirmYes").addEventListener("click", async () => {
+  const button = $("confirmYes");
   const recipient = currentConfig.rsvpEmail || "khongtienanhlrtt@gmail.com";
-  const subject = `Xác nhận tham gia chụp kỷ yếu - ${currentGuestName}`;
-  const body = `Xin chào Khổng Tiến Anh,\n\nMình là ${currentGuestName}. Mình xác nhận sẽ tham gia buổi chụp kỷ yếu.\n\nCảm ơn bạn đã mời mình!`;
-  const mailto = `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-  closeConfirmModal();
-  window.location.href = mailto;
+  const publicKey = currentConfig.emailjsPublicKey;
+  const serviceId = currentConfig.emailjsServiceId;
+  const templateId = currentConfig.emailjsTemplateId;
+
+  if (!window.emailjs || !publicKey || !serviceId || !templateId) {
+    alert("Website chưa được cấu hình dịch vụ gửi email. Vui lòng liên hệ chủ nhân lời mời để hoàn tất xác nhận.");
+    return;
+  }
+
+  button.disabled = true;
+  const originalText = button.textContent;
+  button.textContent = "Đang gửi xác nhận...";
+  try {
+    emailjs.init({ publicKey });
+    await emailjs.send(serviceId, templateId, {
+      to_email: recipient,
+      guest_name: currentGuestName,
+      event_date: currentConfig.eventDate || "Chưa cập nhật",
+      event_place: currentConfig.eventPlace || "Chưa cập nhật",
+      reply_to: "",
+      message: `${currentGuestName} đã xác nhận tham gia buổi chụp kỷ yếu.`
+    });
+    closeConfirmModal();
+    alert("Đã gửi xác nhận thành công! Chủ nhân lời mời sẽ nhận được email thông báo.");
+  } catch (error) {
+    console.error("Lỗi gửi email xác nhận:", error);
+    alert("Chưa gửi được thông báo. Vui lòng thử lại sau hoặc liên hệ chủ nhân lời mời.");
+  } finally {
+    button.disabled = false;
+    button.textContent = originalText;
+  }
 });
